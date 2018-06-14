@@ -26,7 +26,8 @@ import io.plaidapp.data.api.ClientAuthInterceptor
 import io.plaidapp.data.api.DenvelopingConverter
 import io.plaidapp.designernews.data.api.DesignerNewsRepository
 import io.plaidapp.designernews.data.api.DesignerNewsService
-import io.plaidapp.designernews.login.data.DesignerNewsLoginLocalStorage
+import io.plaidapp.designernews.login.data.DesignerNewsLoginLocalDataSource
+import io.plaidapp.designernews.login.data.DesignerNewsLoginRemoteDataSource
 import io.plaidapp.designernews.login.data.DesignerNewsLoginRepository
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -40,17 +41,19 @@ import retrofit2.converter.gson.GsonConverterFactory
  */
 
 
-fun provideDesignerNewsLoginLocalStorage(context: Context): DesignerNewsLoginLocalStorage {
+fun provideDesignerNewsLoginLocalStorage(context: Context): DesignerNewsLoginLocalDataSource {
     val preferences = context.applicationContext
             .getSharedPreferences(
-                    DesignerNewsLoginLocalStorage.DESIGNER_NEWS_PREF,
+                    DesignerNewsLoginLocalDataSource.DESIGNER_NEWS_PREF,
                     Context.MODE_PRIVATE
             )
-    return DesignerNewsLoginLocalStorage(preferences)
+    return DesignerNewsLoginLocalDataSource(preferences)
 }
 
 fun provideDesignerNewsLoginRepository(context: Context): DesignerNewsLoginRepository {
-    return DesignerNewsLoginRepository.getInstance(provideDesignerNewsLoginLocalStorage(context))
+    return DesignerNewsLoginRepository.getInstance(
+            provideDesignerNewsLoginLocalStorage(context),
+            DesignerNewsLoginRemoteDataSource())
 }
 
 fun provideDesignerNewsService(accessToken: String? = null): DesignerNewsService {
