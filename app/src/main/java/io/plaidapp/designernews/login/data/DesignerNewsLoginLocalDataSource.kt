@@ -24,15 +24,37 @@ import io.plaidapp.designernews.data.api.model.User
 /**
  * Local storage for Designer News login related data.
  */
-class DesignerNewsLoginLocalDataSource(private val prefs: SharedPreferences) {
+abstract class DesignerNewsLoginLocalDataSource {
+    /**
+     * Clear all data related to this Designer News instance: user data and access token
+     */
+    abstract fun clearData()
 
-    var accessToken: String?
+    /**
+     * Auth token used for requests that require authentication
+     */
+    open var authToken: String? = null
+
+    /**
+     * Instance of the logged in user. If missing, an empty user is created.
+     * TODO when the user is not logged in, return null, not an empty user
+     */
+    open var user: User = User.Builder().build()
+}
+
+/**
+ * Local storage for Designer News login related data, implemented using SharedPreferences
+ */
+class SharedPreferencesDesignerNewsLoginLocalDataSource(private val prefs: SharedPreferences)
+    : DesignerNewsLoginLocalDataSource() {
+
+    override var authToken: String?
         get() = prefs.getString(KEY_ACCESS_TOKEN, null)
         set(value) {
-            prefs.edit().putString(KEY_ACCESS_TOKEN, accessToken).apply()
+            prefs.edit().putString(KEY_ACCESS_TOKEN, authToken).apply()
         }
 
-    var user: User
+    override var user: User
         get() {
             val userId = prefs.getLong(KEY_USER_ID, 0L)
             val username = prefs.getString(KEY_USER_NAME, null)
@@ -51,7 +73,7 @@ class DesignerNewsLoginLocalDataSource(private val prefs: SharedPreferences) {
             editor.apply()
         }
 
-    fun clearData() {
+    override fun clearData() {
         val editor = prefs.edit()
         editor.putString(KEY_ACCESS_TOKEN, null)
         editor.putLong(KEY_USER_ID, 0L)

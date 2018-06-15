@@ -24,11 +24,13 @@ import com.google.gson.Gson
 import io.plaidapp.BuildConfig
 import io.plaidapp.data.api.ClientAuthInterceptor
 import io.plaidapp.data.api.DenvelopingConverter
+import io.plaidapp.designernews.data.api.DesignerNewsAuthTokenHolder
 import io.plaidapp.designernews.data.api.DesignerNewsRepository
 import io.plaidapp.designernews.data.api.DesignerNewsService
 import io.plaidapp.designernews.login.data.DesignerNewsLoginLocalDataSource
 import io.plaidapp.designernews.login.data.DesignerNewsLoginRemoteDataSource
 import io.plaidapp.designernews.login.data.DesignerNewsLoginRepository
+import io.plaidapp.designernews.login.data.SharedPreferencesDesignerNewsLoginLocalDataSource
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -40,27 +42,45 @@ import retrofit2.converter.gson.GsonConverterFactory
  * Once we have a dependency injection framework or a service locator, this should be removed.
  */
 
+val debugLevel = if (BuildConfig.DEBUG) {
+    HttpLoggingInterceptor.Level.BODY
+} else {
+    HttpLoggingInterceptor.Level.NONE
+}
 
-fun provideDesignerNewsLoginLocalStorage(context: Context): DesignerNewsLoginLocalDataSource {
+val interceptor = HttpLoggingInterceptor().apply { level = debugLevel }
+
+fun provideDesignerNewsLoginLocalDataSource(context: Context): DesignerNewsLoginLocalDataSource {
     val preferences = context.applicationContext
             .getSharedPreferences(
-                    DesignerNewsLoginLocalDataSource.DESIGNER_NEWS_PREF,
+                    SharedPreferencesDesignerNewsLoginLocalDataSource.DESIGNER_NEWS_PREF,
                     Context.MODE_PRIVATE
             )
-    return DesignerNewsLoginLocalDataSource(preferences)
+    return SharedPreferencesDesignerNewsLoginLocalDataSource(preferences)
 }
 
 fun provideDesignerNewsLoginRepository(context: Context): DesignerNewsLoginRepository {
     return DesignerNewsLoginRepository.getInstance(
-            provideDesignerNewsLoginLocalStorage(context),
-            DesignerNewsLoginRemoteDataSource())
+            provideDesignerNewsLoginLocalDataSource(context),
+            provideDesignerNewsLoginRemoteDataSource())
 }
 
-fun provideDesignerNewsService(accessToken: String? = null): DesignerNewsService {
+fun provideDesignerNewsLoginRemoteDataSource(): DesignerNewsLoginRemoteDataSource {
+    // using a shared instance of the token holder between the remote data source and the service
+    // so the remote data source can update the token without having to recreate the service
+    // and at run time, having the service use the latest token
+    // TODO right now, the token is held by the DesignerNewsLoginDataSource and updated via the
+    // login repository. Preferably, only the remote data source should know how to get and store
+    // the auth token
+    val tokenHolder = DesignerNewsAuthTokenHolder.getInstance(null)
+    return DesignerNewsLoginRemoteDataSource(tokenHolder, provideDesignerNewsService(tokenHolder))
+}
+
+fun provideDesignerNewsService(tokenHolder: DesignerNewsAuthTokenHolder): DesignerNewsService {
     val client = OkHttpClient.Builder()
             .addInterceptor(
-                    ClientAuthInterceptor(accessToken, BuildConfig.DESIGNER_NEWS_CLIENT_ID))
-            .addInterceptor(getHttpLoggingInterceptor())
+                    ClientAuthInterceptor(tokenHolder, BuildConfig.DESIGNER_NEWS_CLIENT_ID))
+            .addInterceptor(interceptor)
             .build()
     val gson = Gson()
     return Retrofit.Builder()
@@ -78,14 +98,4 @@ fun provideDesignerNewsRepository(context: Context): DesignerNewsRepository {
 
 fun provideDesignerNewsRepository(service: DesignerNewsService): DesignerNewsRepository {
     return DesignerNewsRepository.getInstance(service)
-}
-
-private fun getHttpLoggingInterceptor(): HttpLoggingInterceptor {
-    val debugLevel = if (BuildConfig.DEBUG) {
-        HttpLoggingInterceptor.Level.BODY
-    } else {
-        HttpLoggingInterceptor.Level.NONE
-    }
-    return HttpLoggingInterceptor()
-            .also { it.level = debugLevel }
 }
