@@ -110,10 +110,11 @@ class DesignerNewsRepository(private val service: DesignerNewsService) {
         @Volatile
         private var INSTANCE: DesignerNewsRepository? = null
 
-        fun getInstance(service: DesignerNewsService): DesignerNewsRepository =
-                INSTANCE ?: synchronized(this) {
-                    INSTANCE
-                            ?: DesignerNewsRepository(service).also { INSTANCE = it }
-                }
+        fun getInstance(service: DesignerNewsService): DesignerNewsRepository {
+            return INSTANCE ?: synchronized(this) {
+                INSTANCE
+                        ?: DesignerNewsRepository(service).also { INSTANCE = it }
+            }
+        }
     }
 }
