@@ -118,10 +118,8 @@ public class DesignerNewsStory extends Activity {
     private int fabExpandDuration;
     private int threadWidth;
     private int threadGap;
-    private View enterCommentView;
 
     private Story story;
-
     private DesignerNewsPrefs designerNewsPrefs;
     private Bypass markdown;
     private CustomTabActivityHelper customTab;
@@ -183,26 +181,23 @@ public class DesignerNewsStory extends Activity {
             findViewById(R.id.back).setOnClickListener(backClick);
         }
 
-        enterCommentView = setupCommentField();
-        commentsAdapter = new DesignerNewsCommentsAdapter(
-                header, new ArrayList<>(0), enterCommentView);
-        commentsList.setAdapter(commentsAdapter);
-
-        customTab = new CustomTabActivityHelper();
-        customTab.setConnectionCallback(customTabConnect);
-    }
-
-    private void setupComments(View enterCommentView, List<Comment> comments) {
-        if (comments.size() > 0) {
+        final View enterCommentView = setupCommentField();
+        if (story.comments != null && story.comments.size() > 0) {
             // flatten the comments from a nested structure {@see Comment#comments} to a
             // list appropriate for our adapter (using the depth attribute).
             List<Comment> flattened = new ArrayList<>(story.comment_count);
-            unnestComments(comments, flattened);
+            unnestComments(story.comments, flattened);
             commentsAdapter =
-                    new DesignerNewsCommentsAdapter(header, comments, enterCommentView);
+                    new DesignerNewsCommentsAdapter(header, flattened, enterCommentView);
             commentsList.setAdapter(commentsAdapter);
 
+        } else {
+            commentsAdapter = new DesignerNewsCommentsAdapter(
+                    header, new ArrayList<>(0), enterCommentView);
+            commentsList.setAdapter(commentsAdapter);
         }
+        customTab = new CustomTabActivityHelper();
+        customTab.setConnectionCallback(customTabConnect);
     }
 
     private void bindResources() {
