@@ -665,7 +665,7 @@ public class DesignerNewsStory extends Activity {
                     bindComment((CommentViewHolder) holder, null);
                     break;
                 case TYPE_COMMENT_REPLY:
-                    ((CommentReplyHolder) holder).bindCommentReply(
+                    ((CommentReplyViewHolder) holder).bindCommentReply(
                             getComment(holder.getAdapterPosition() - 1));
                     break;
             } // nothing to bind for header / no comment / footer views
@@ -823,7 +823,8 @@ public class DesignerNewsStory extends Activity {
             // set/clear expanded comment state
             holder.itemView.setActivated(holder.getAdapterPosition() == expandedCommentPosition);
             if (holder.getAdapterPosition() == expandedCommentPosition) {
-                final int threadDepthWidth = holder.getThreadDepth().getDrawable().getIntrinsicWidth();
+                final int threadDepthWidth =
+                        holder.getThreadDepth().getDrawable().getIntrinsicWidth();
                 final float leftShift = -(threadDepthWidth + ((ViewGroup.MarginLayoutParams)
                         holder.getThreadDepth().getLayoutParams()).getMarginEnd());
                 holder.getAuthor().setTranslationX(leftShift);
@@ -870,7 +871,7 @@ public class DesignerNewsStory extends Activity {
             });
         }
 
-        private void handleCommentVotesClick(CommentReplyHolder holder,
+        private void handleCommentVotesClick(CommentReplyViewHolder holder,
                 boolean isUserLoggedIn,
                 Comment comment) {
             if (isUserLoggedIn) {
@@ -893,7 +894,7 @@ public class DesignerNewsStory extends Activity {
             holder.getCommentReply().clearFocus();
         }
 
-        private void handleCommentReplyFocus(CommentReplyHolder holder,
+        private void handleCommentReplyFocus(CommentReplyViewHolder holder,
                 Interpolator interpolator) {
             holder.getCommentVotes().animate()
                     .translationX(-holder.getCommentVotes().getWidth())
@@ -923,7 +924,7 @@ public class DesignerNewsStory extends Activity {
                     });
         }
 
-        private void handleCommentReplyFocusLoss(CommentReplyHolder holder,
+        private void handleCommentReplyFocusLoss(CommentReplyViewHolder holder,
                 Interpolator interpolator) {
             holder.getCommentVotes().animate()
                     .translationX(0f)
@@ -953,8 +954,8 @@ public class DesignerNewsStory extends Activity {
         }
 
         @NonNull
-        private CommentReplyHolder createCommentReplyHolder(ViewGroup parent) {
-            final CommentReplyHolder holder = new CommentReplyHolder(getLayoutInflater()
+        private CommentReplyViewHolder createCommentReplyHolder(ViewGroup parent) {
+            final CommentReplyViewHolder holder = new CommentReplyViewHolder(getLayoutInflater()
                     .inflate(R.layout.designer_news_comment_actions, parent, false));
 
             holder.getCommentVotes().setOnClickListener(v -> {
