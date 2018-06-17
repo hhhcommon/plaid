@@ -93,3 +93,9 @@ dependencies {
     api "org.jsoup:jsoup:${versions.jsoup}"
     api project(':bypass')
 }
+
+kotlin {
+    experimental {
+        coroutines "enable"
+    }
+}
