@@ -21,9 +21,11 @@ package io.plaidapp.designernews
 
 import android.content.Context
 import com.google.gson.Gson
+import com.jakewharton.retrofit2.adapter.kotlin.coroutines.experimental.CoroutineCallAdapterFactory
 import io.plaidapp.BuildConfig
 import io.plaidapp.data.api.ClientAuthInterceptor
 import io.plaidapp.data.api.DenvelopingConverter
+import io.plaidapp.designernews.data.api.DesignerNewsCommentsRepository
 import io.plaidapp.designernews.data.api.DesignerNewsRepository
 import io.plaidapp.designernews.data.api.DesignerNewsService
 import io.plaidapp.designernews.login.data.DesignerNewsLoginLocalStorage
@@ -65,6 +67,7 @@ fun provideDesignerNewsService(accessToken: String? = null): DesignerNewsService
             .client(client)
             .addConverterFactory(DenvelopingConverter(gson))
             .addConverterFactory(GsonConverterFactory.create(gson))
+            .addCallAdapterFactory(CoroutineCallAdapterFactory())
             .build()
             .create(DesignerNewsService::class.java)
 }
@@ -85,4 +88,8 @@ private fun getHttpLoggingInterceptor(): HttpLoggingInterceptor {
     }
     return HttpLoggingInterceptor()
             .also { it.level = debugLevel }
+}
+
+fun provideDesignerNewsCommentsRepository(): DesignerNewsCommentsRepository {
+    return DesignerNewsCommentsRepository.getInstance(provideDesignerNewsService())
 }

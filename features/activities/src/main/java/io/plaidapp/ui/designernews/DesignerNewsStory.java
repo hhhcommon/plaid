@@ -16,6 +16,12 @@
 
 package io.plaidapp.ui.designernews;
 
+import static com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions.withCrossFade;
+
+import static io.plaidapp.util.AnimUtils.getFastOutLinearInInterpolator;
+import static io.plaidapp.util.AnimUtils.getFastOutSlowInInterpolator;
+import static io.plaidapp.util.AnimUtils.getLinearOutSlowInInterpolator;
+
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
@@ -44,6 +50,7 @@ import android.text.Spanned;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.text.style.TextAppearanceSpan;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewAnimationUtils;
@@ -67,10 +74,12 @@ import java.util.List;
 
 import in.uncod.android.bypass.Bypass;
 import io.plaidapp.activities.R;
+import io.plaidapp.designernews.DesignerNewsPrefs;
+import io.plaidapp.designernews.Injection;
+import io.plaidapp.designernews.data.api.DesignerNewsCommentsRepository;
 import io.plaidapp.designernews.data.api.model.Comment;
 import io.plaidapp.designernews.data.api.model.Story;
 import io.plaidapp.designernews.data.api.model.User;
-import io.plaidapp.designernews.DesignerNewsPrefs;
 import io.plaidapp.ui.drawable.ThreadedCommentDrawable;
 import io.plaidapp.ui.recyclerview.SlideInItemAnimator;
 import io.plaidapp.ui.transitions.GravityArcMotion;
@@ -87,14 +96,10 @@ import io.plaidapp.util.ViewUtils;
 import io.plaidapp.util.customtabs.CustomTabActivityHelper;
 import io.plaidapp.util.glide.GlideApp;
 import io.plaidapp.util.glide.ImageSpanTarget;
+import kotlin.Unit;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
-
-import static com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions.withCrossFade;
-import static io.plaidapp.util.AnimUtils.getFastOutLinearInInterpolator;
-import static io.plaidapp.util.AnimUtils.getFastOutSlowInInterpolator;
-import static io.plaidapp.util.AnimUtils.getLinearOutSlowInInterpolator;
 
 public class DesignerNewsStory extends Activity {
 
@@ -120,8 +125,12 @@ public class DesignerNewsStory extends Activity {
     private int fabExpandDuration;
     private int threadWidth;
     private int threadGap;
+    private View enterCommentView;
 
     private Story story;
+
+    private DesignerNewsCommentsRepository commentsRepository;
+
     private DesignerNewsPrefs designerNewsPrefs;
     private Bypass markdown;
     private CustomTabActivityHelper customTab;
@@ -130,9 +139,22 @@ public class DesignerNewsStory extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_designer_news_story);
+
+        commentsRepository = Injection.provideDesignerNewsCommentsRepository();
         bindResources();
 
         story = getIntent().getParcelableExtra(Activities.DesignerNews.Story.EXTRA_STORY);
+
+        commentsRepository.getComments(story.links.getComments(),
+                comments -> {
+                    Log.d("flo", "comments " + comments);
+                    setupComments(enterCommentView, (List<Comment>) comments);
+                    return Unit.INSTANCE;
+                }, error -> {
+                    Log.e("flo", "error" + error);
+                    return Unit.INSTANCE;
+                });
+
         fab.setOnClickListener(fabClick);
         chromeFader = new ElasticDragDismissFrameLayout.SystemChromeFader(this);
         markdown = new Bypass(this, new Bypass.Options()
@@ -142,7 +164,8 @@ public class DesignerNewsStory extends Activity {
                 .setBlockQuoteLineIndent(8) // dps
                 .setPreImageLinebreakHeight(4) //dps
                 .setBlockQuoteIndentSize(TypedValue.COMPLEX_UNIT_DIP, 2f)
-                .setBlockQuoteTextColor(ContextCompat.getColor(this, io.plaidapp.R.color.designer_news_quote)));
+                .setBlockQuoteTextColor(
+                        ContextCompat.getColor(this, io.plaidapp.R.color.designer_news_quote)));
         designerNewsPrefs = DesignerNewsPrefs.get(this);
         layoutManager = new LinearLayoutManager(this);
         commentsList.setLayoutManager(layoutManager);
@@ -180,23 +203,26 @@ public class DesignerNewsStory extends Activity {
             findViewById(R.id.back).setOnClickListener(backClick);
         }
 
-        final View enterCommentView = setupCommentField();
-        if (story.comments != null && story.comments.size() > 0) {
+        enterCommentView = setupCommentField();
+        commentsAdapter = new DesignerNewsCommentsAdapter(
+                header, new ArrayList<>(0), enterCommentView);
+        commentsList.setAdapter(commentsAdapter);
+
+        customTab = new CustomTabActivityHelper();
+        customTab.setConnectionCallback(customTabConnect);
+    }
+
+    private void setupComments(View enterCommentView, List<Comment> comments) {
+        if (comments.size() > 0) {
             // flatten the comments from a nested structure {@see Comment#comments} to a
             // list appropriate for our adapter (using the depth attribute).
             List<Comment> flattened = new ArrayList<>(story.comment_count);
-            unnestComments(story.comments, flattened);
+            unnestComments(comments, flattened);
             commentsAdapter =
                     new DesignerNewsCommentsAdapter(header, flattened, enterCommentView);
             commentsList.setAdapter(commentsAdapter);
 
-        } else {
-            commentsAdapter = new DesignerNewsCommentsAdapter(
-                    header, new ArrayList<>(0), enterCommentView);
-            commentsList.setAdapter(commentsAdapter);
         }
-        customTab = new CustomTabActivityHelper();
-        customTab.setConnectionCallback(customTabConnect);
     }
 
     private void bindResources() {
@@ -448,8 +474,9 @@ public class DesignerNewsStory extends Activity {
         }
 
         upvoteStory = header.findViewById(R.id.story_vote_action);
-        upvoteStory.setText(getResources().getQuantityString(io.plaidapp.R.plurals.upvotes, story.vote_count,
-                NumberFormat.getInstance().format(story.vote_count)));
+        upvoteStory.setText(
+                getResources().getQuantityString(io.plaidapp.R.plurals.upvotes, story.vote_count,
+                        NumberFormat.getInstance().format(story.vote_count)));
         upvoteStory.setOnClickListener(v -> upvoteStory());
 
         final TextView share = header.findViewById(R.id.story_share_action);
@@ -463,7 +490,7 @@ public class DesignerNewsStory extends Activity {
         });
 
         TextView storyPosterTime = header.findViewById(R.id.story_poster_time);
-        if(story.user_display_name != null && story.user_job != null) {
+        if (story.user_display_name != null && story.user_job != null) {
             SpannableString poster = new SpannableString(story.user_display_name.toLowerCase());
             poster.setSpan(new TextAppearanceSpan(this, R.style.TextAppearance_CommentAuthor),
                     0, poster.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -608,8 +635,8 @@ public class DesignerNewsStory extends Activity {
         private boolean replyToCommentFocused = false;
 
         DesignerNewsCommentsAdapter(@NonNull View header,
-                                    @NonNull List<Comment> comments,
-                                    @NonNull View footer) {
+                @NonNull List<Comment> comments,
+                @NonNull View footer) {
             this.header = header;
             this.comments = comments;
             this.footer = footer;
@@ -618,8 +645,9 @@ public class DesignerNewsStory extends Activity {
         @Override
         public int getItemViewType(int position) {
             if (position == 0) return TYPE_HEADER;
-            if (isCommentReplyExpanded() && position == expandedCommentPosition + 1)
+            if (isCommentReplyExpanded() && position == expandedCommentPosition + 1) {
                 return TYPE_COMMENT_REPLY;
+            }
             int footerPosition = hasComments() ? 1 + comments.size() // header + comments
                     : 2; // header + no comments view
             if (isCommentReplyExpanded()) footerPosition++;
@@ -660,8 +688,8 @@ public class DesignerNewsStory extends Activity {
 
         @Override
         public void onBindViewHolder(RecyclerView.ViewHolder holder,
-                                     int position,
-                                     List<Object> partialChangePayloads) {
+                int position,
+                List<Object> partialChangePayloads) {
             switch (getItemViewType(position)) {
                 case TYPE_COMMENT:
                     bindComment((CommentHolder) holder, partialChangePayloads);
@@ -727,7 +755,9 @@ public class DesignerNewsStory extends Activity {
         private int adapterPositionToCommentIndex(int adapterPosition) {
             int index = adapterPosition - 1; // less header
             if (isCommentReplyExpanded()
-                    && adapterPosition > expandedCommentPosition) index--;
+                    && adapterPosition > expandedCommentPosition) {
+                index--;
+            }
             return index;
         }
 
@@ -835,7 +865,7 @@ public class DesignerNewsStory extends Activity {
                         upvoteComment.enqueue(new Callback<Comment>() {
                             @Override
                             public void onResponse(Call<Comment> call,
-                                                   Response<Comment> response) {
+                                    Response<Comment> response) {
                             }
 
                             @Override
@@ -1050,9 +1080,9 @@ public class DesignerNewsStory extends Activity {
         @NonNull
         @Override
         public ItemHolderInfo recordPreLayoutInformation(@NonNull RecyclerView.State state,
-                                                         @NonNull RecyclerView.ViewHolder viewHolder,
-                                                         int changeFlags,
-                                                         @NonNull List<Object> payloads) {
+                @NonNull RecyclerView.ViewHolder viewHolder,
+                int changeFlags,
+                @NonNull List<Object> payloads) {
             CommentItemHolderInfo info = (CommentItemHolderInfo)
                     super.recordPreLayoutInformation(state, viewHolder, changeFlags, payloads);
             info.doExpand = payloads.contains(EXPAND_COMMENT);
@@ -1062,9 +1092,9 @@ public class DesignerNewsStory extends Activity {
 
         @Override
         public boolean animateChange(@NonNull RecyclerView.ViewHolder oldHolder,
-                                     @NonNull RecyclerView.ViewHolder newHolder,
-                                     @NonNull ItemHolderInfo preInfo,
-                                     @NonNull ItemHolderInfo postInfo) {
+                @NonNull RecyclerView.ViewHolder newHolder,
+                @NonNull ItemHolderInfo preInfo,
+                @NonNull ItemHolderInfo postInfo) {
             if (newHolder instanceof CommentHolder && preInfo instanceof CommentItemHolderInfo) {
                 final CommentHolder holder = (CommentHolder) newHolder;
                 final CommentItemHolderInfo info = (CommentItemHolderInfo) preInfo;
