@@ -30,7 +30,6 @@ import io.plaidapp.designernews.data.api.DesignerNewsService
 import io.plaidapp.designernews.login.data.DesignerNewsLoginLocalDataSource
 import io.plaidapp.designernews.login.data.DesignerNewsLoginRemoteDataSource
 import io.plaidapp.designernews.login.data.DesignerNewsLoginRepository
-import io.plaidapp.designernews.login.data.SharedPreferencesDesignerNewsLoginLocalDataSource
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -53,10 +52,10 @@ val interceptor = HttpLoggingInterceptor().apply { level = debugLevel }
 fun provideDesignerNewsLoginLocalDataSource(context: Context): DesignerNewsLoginLocalDataSource {
     val preferences = context.applicationContext
             .getSharedPreferences(
-                    SharedPreferencesDesignerNewsLoginLocalDataSource.DESIGNER_NEWS_PREF,
+                    DesignerNewsLoginLocalDataSource.DESIGNER_NEWS_PREF,
                     Context.MODE_PRIVATE
             )
-    return SharedPreferencesDesignerNewsLoginLocalDataSource(preferences)
+    return DesignerNewsLoginLocalDataSource(preferences)
 }
 
 fun provideDesignerNewsLoginRepository(context: Context): DesignerNewsLoginRepository {

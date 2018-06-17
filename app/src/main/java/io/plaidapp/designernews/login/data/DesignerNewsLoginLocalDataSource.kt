@@ -22,38 +22,23 @@ import android.content.SharedPreferences
 import io.plaidapp.designernews.data.api.model.User
 
 /**
- * Local storage for Designer News login related data.
+ * Local storage for Designer News login related data, implemented using SharedPreferences
  */
-abstract class DesignerNewsLoginLocalDataSource {
-    /**
-     * Clear all data related to this Designer News instance: user data and access token
-     */
-    abstract fun clearData()
+class DesignerNewsLoginLocalDataSource(private val prefs: SharedPreferences) {
 
     /**
      * Auth token used for requests that require authentication
      */
-    open var authToken: String? = null
-
-    /**
-     * Instance of the logged in user. If missing, an empty user is created.
-     * TODO when the user is not logged in, return null, not an empty user
-     */
-    open var user: User = User.Builder().build()
-}
-
-/**
- * Local storage for Designer News login related data, implemented using SharedPreferences
- */
-class SharedPreferencesDesignerNewsLoginLocalDataSource(private val prefs: SharedPreferences)
-    : DesignerNewsLoginLocalDataSource() {
-
-    override var authToken: String?
+    var authToken: String?
         get() = prefs.getString(KEY_ACCESS_TOKEN, null)
         set(value) {
             prefs.edit().putString(KEY_ACCESS_TOKEN, authToken).apply()
         }
 
+    /**
+     * Instance of the logged in user. If missing, an empty user is created.
+     * TODO when the user is not logged in, return null, not an empty user
+     */
     override var user: User
         get() {
             val userId = prefs.getLong(KEY_USER_ID, 0L)
@@ -73,7 +58,10 @@ class SharedPreferencesDesignerNewsLoginLocalDataSource(private val prefs: Share
             editor.apply()
         }
 
-    override fun clearData() {
+    /**
+     * Clear all data related to this Designer News instance: user data and access token
+     */
+    fun clearData() {
         val editor = prefs.edit()
         editor.putString(KEY_ACCESS_TOKEN, null)
         editor.putLong(KEY_USER_ID, 0L)
